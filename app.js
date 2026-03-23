@@ -1,4 +1,5 @@
 var express = require('express')
+var client = require('prom-client');
 var path = require('path')
 var cookieParser = require('cookie-parser')
 var logger = require('morgan')
@@ -10,6 +11,26 @@ var healthRouter   = require('./routes/health')
 var productsRouter = require('./routes/items') 
 
 var app = express()
+client.collectDefaultMetrics();
+
+const httpRequestCounter = new client.Counter({
+  name: 'http_requests_total',
+  help: 'Total de peticiones HTTP procesadas',
+  labelNames: ['metodo', 'ruta', 'estado_http'],
+});
+
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    // Esto registra el método (GET/POST), la ruta y el código (200, 404, 500)
+    httpRequestCounter.labels(req.method, req.path, res.statusCode).inc();
+  });
+  next();
+});
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', client.register.contentType);
+  res.send(await client.register.metrics());
+});
 
 app.use(logger('dev'))
 app.use(express.json())
