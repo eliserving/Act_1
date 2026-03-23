@@ -1,38 +1,68 @@
 name: Node.js CI
 
-
-
 on:
- push:
-   branches: [ "main" ]
- pull_request:
-   branches: [ "main" ]
-
-
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
- test:
-   runs-on: ubuntu-latest
-   strategy:
-         matrix:
-           node-version: [22.20.0,18.x]
-   steps:
-     - name: Checkout repository
-       uses: actions/checkout@v4
-     - name: Use Node.js ${{ matrix.node-version }}
-       uses: actions/setup-node@v4
-       with:
-         node-version: ${{ matrix.node-version }}
-         cache: 'npm'
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.20.0, 18.x]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
+      - name: Install dependencies
+        run: npm install
 
-     - name: Install dependencies
-       run: npm install
+      - name: Run Jest tests
+        run: |
+          chmod +x ./node_modules/.bin/jest
+          npx jest --verbose
 
+  load-test:
+    runs-on: ubuntu-latest
+    needs: test  # Solo corre si Jest pasa primero
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Install K6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] \
+            https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
 
-     - name: Run Jest tests
-       run: |
-         chmod +x ./node_modules/.bin/jest
-         npx jest --verbose
+      - name: Start Express server
+        run: |
+          npm install
+          npm start &
+          sleep 5  # Esperar que el servidor levante
+
+      - name: Run K6 load tests
+        env:
+          K6_PROMETHEUS_RW_SERVER_URL: ${{ secrets.PROMETHEUS_URL }}
+          K6_PROMETHEUS_RW_USERNAME:   ${{ secrets.PROMETHEUS_USERNAME }}
+          K6_PROMETHEUS_RW_PASSWORD:   ${{ secrets.GRAFANA_TOKEN }}
+        run: |
+          k6 run \
+            -o experimental-prometheus-rw \
+            --env BASE_URL=http://localhost:3000 \
+            tests/load-test.js
