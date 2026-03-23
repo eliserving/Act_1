@@ -1,4 +1,3 @@
-# Usar imagen oficial de Node.js
 FROM node:20-alpine
 
 # Directorio de trabajo dentro del contenedor
