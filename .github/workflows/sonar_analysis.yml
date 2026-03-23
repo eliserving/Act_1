@@ -17,7 +17,7 @@ jobs:
       - name: Clonación del repositorio (Checkout)
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Requerido por SonarQube para un análisis histórico completo
+          fetch-depth: 0 
 
       - name: Ejecución de Escáner SonarQube
         uses: SonarSource/sonarqube-scan-action@master
