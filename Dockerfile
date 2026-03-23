@@ -12,7 +12,7 @@ RUN npm ci --only=production
 # Copiar el resto del código
 COPY . .
 
-# Exponer el puerto de la app
+# Exponer el puerto de la 
 EXPOSE 3000
 
 # Comando para iniciar la app
