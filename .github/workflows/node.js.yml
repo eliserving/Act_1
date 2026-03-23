@@ -33,5 +33,6 @@ jobs:
 
 
      - name: Run Jest tests
-       run: npx jest --verbose
-
+       run: |
+         chmod +x ./node_modules/.bin/jest
+         npx jest --verbose
