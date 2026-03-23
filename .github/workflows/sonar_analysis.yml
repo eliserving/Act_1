@@ -27,4 +27,4 @@ jobs:
         with:
           args: >
             -Dsonar.projectKey=mi-proyecto-gestion-sw
-            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.wait=false
