@@ -76,7 +76,7 @@ jobs:
           sudo apt-get install k6 -y
 
       - name: Run K6 performance test
-        run: k6 run tests/performance/load-test.js
+        run: k6 run tests/load-test.js
 
   build-and-push:
     needs: k6-performance
