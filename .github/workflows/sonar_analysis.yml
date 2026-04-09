@@ -1,4 +1,4 @@
-name: CI Pipeline - Análisis SAST con SonarQube
+name: CI Pipeline - Análisis SAST con SonarQube V2
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
       - name: Clonación del repositorio (Checkout)
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 
+          fetch-depth: 0  
 
       - name: Ejecución de Escáner SonarQube
         uses: SonarSource/sonarqube-scan-action@master
