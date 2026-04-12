@@ -1,10 +1,14 @@
-name: Node.js CI
+name: CI/CD Pipeline - Node.js to GHCR
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ""
 
 jobs:
   test:
@@ -30,12 +34,56 @@ jobs:
           chmod +x ./node_modules/.bin/jest
           npx jest --verbose
 
-  load-test:
+  sonarqube:
+    needs: test
     runs-on: ubuntu-latest
-    needs: test  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage --coverageReporters=lcov || true
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=mi-proyecto-gestion-sw
+            -Dsonar.qualitygate.wait=false
+
+  k6-performance:
+    needs: sonarqube
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start app in background
+        run: |
+          npm start &
+          echo "Esperando que la app levante..."
+          sleep 10
 
       - name: Install K6
         run: |
@@ -44,25 +92,84 @@ jobs:
             --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
             --keyserver hkp://keyserver.ubuntu.com:80 \
             --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] \
-            https://dl.k6.io/deb stable main" \
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
             | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
-          sudo apt-get install k6
+          sudo apt-get install k6 -y
 
-      - name: Start Express server
-        run: |
-          npm install
-          npm start &
-          sleep 5  # Esperar que el servidor levante
-
-      - name: Run K6 load tests
+      - name: Run K6 performance test
         env:
           K6_PROMETHEUS_RW_SERVER_URL: ${{ secrets.PROMETHEUS_URL }}
-          K6_PROMETHEUS_RW_USERNAME:   ${{ secrets.PROMETHEUS_USERNAME }}
-          K6_PROMETHEUS_RW_PASSWORD:   ${{ secrets.GRAFANA_TOKEN }}
+          K6_PROMETHEUS_RW_USERNAME: ${{ secrets.PROMETHEUS_USERNAME }}
+          K6_PROMETHEUS_RW_PASSWORD: ${{ secrets.GRAFANA_TOKEN }}
         run: |
           k6 run \
             -o experimental-prometheus-rw \
             --env BASE_URL=http://localhost:3000 \
             tests/load-test.js
+
+  build-and-push:
+    needs: k6-performance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set lower case owner and repo name
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set lower case repo name
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+      - name: Deploy via Bastion Host a servidor-docker
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 10.0.2.4
+          username: g2022371031
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          proxy_host: ${{ secrets.SERVER_HOST }}
+          proxy_username: g2022371031
+          proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
+              -u eliserving --password-stdin
+            docker stop my-node-app || true
+            docker rm my-node-app || true
+            docker pull ghcr.io/eliserving/act_1:main
+            docker run -d \
+              --name my-node-app \
+              -p 80:3000 \
+              --restart always \
+              ghcr.io/eliserving/act_1:main
