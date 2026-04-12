@@ -82,7 +82,7 @@ jobs:
       - name: Start app in background
         run: |
           npm start &
-          echo "Esperando que la app se levante..."
+          echo "Esperando que la app  levante..."
           sleep 10
 
       - name: Install K6
