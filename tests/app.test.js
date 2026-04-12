@@ -16,19 +16,19 @@ describe('Suite de Pruebas de Calidad de Software', () => {
       expect(result).toBe(0);
     });
 
-    // ✅ VALIDACIÓN EXTRA 1
+    // Validaciones adicionales de pruebas unitarias
     test('Debe retornar 0 si el stock es negativo', () => {
       const result = calculateValue(10, -5);
       expect(result).toBe(0);
     });
 
-    // ✅ VALIDACIÓN EXTRA 2
     test('Debe retornar 0 si precio y stock son 0', () => {
       const result = calculateValue(0, 0);
       expect(result).toBe(0);
     });
 
   });
+
 
   describe('Pruebas de Integración - API Endpoints', () => {
 
@@ -48,14 +48,14 @@ describe('Suite de Pruebas de Calidad de Software', () => {
       expect(response.body[0]).toHaveProperty('stock');
     });
 
-    // ✅ VALIDACIÓN EXTRA 3
+    //  VALIDACIÓN EXTRA 
     test('GET /items - La lista no debe estar vacía', async () => {
       const response = await request(app).get('/items');
 
       expect(response.body.length).toBeGreaterThan(0);
     });
 
-    // ✅ VALIDACIÓN EXTRA 4
+    //  VALIDACIÓN EXTRA 
     test('Ruta inexistente debe retornar 404', async () => {
       const response = await request(app).get('/ruta-inexistente');
 
