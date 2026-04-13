@@ -182,7 +182,7 @@ jobs:
       - name: Blue-Green Switch en nginx-publico
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.NGINX_HOST }}
+          host: 34.51.91.183
           username: g2022371031
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
