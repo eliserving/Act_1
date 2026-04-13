@@ -201,7 +201,7 @@ jobs:
               if [ "$TARGET_COLOR" == "blue" ]; then
                 export APP_TARGET_PORT="8000"
               else
-                export APP_TARGET_PORT="3001"
+                export APP_TARGET_PORT="8000"
               fi
              envsubst "\${APP_TARGET_IP} \${APP_TARGET_PORT} \${DEPLOYMENT_COLOR}" \
                 < /etc/nginx/templates/nginx.conf.template \
