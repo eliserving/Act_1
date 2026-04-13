@@ -179,34 +179,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Blue-Green Switch en nginx-publico
+      - name: Blue-Green Switch via bastion
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 34.51.91.183
+          host: ${{ secrets.SERVER_HOST }}
           username: g2022371031
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            source /etc/nginx/current_deploy.env
+            ssh -o StrictHostKeyChecking=no g2022371031@10.0.1.8 '
+             source /etc/nginx/current_deploy.env
 
-            if [ "$CURRENT_COLOR" == "blue" ]; then
-              TARGET_COLOR="green"
-            else
-              TARGET_COLOR="blue"
-            fi
+             if [ "$CURRENT_COLOR" == "blue" ]; then
+               TARGET_COLOR="green"
+             else
+               TARGET_COLOR="blue"
+             fi
 
-            echo "Cambiando de $CURRENT_COLOR a $TARGET_COLOR"
+             echo "Cambiando de $CURRENT_COLOR a $TARGET_COLOR"
 
-            export APP_TARGET_IP="10.0.2.4"
-            export DEPLOYMENT_COLOR="${TARGET_COLOR^}"
+             export APP_TARGET_IP="10.0.2.4"
+             export DEPLOYMENT_COLOR="${TARGET_COLOR^}"
 
-            if [ "$TARGET_COLOR" == "blue" ]; then
-              export APP_TARGET_PORT="80"
-            else
-              export APP_TARGET_PORT="3001"
-            fi
+             if [ "$TARGET_COLOR" == "blue" ]; then
+               export APP_TARGET_PORT="80"
+             else
+               export APP_TARGET_PORT="3001"
+             fi
 
-            envsubst '${APP_TARGET_IP} ${APP_TARGET_PORT} ${DEPLOYMENT_COLOR}' \
-              < /etc/nginx/templates/nginx.conf.template \
-              | sudo tee /etc/nginx/environments/nginx_${TARGET_COLOR}.conf
+             envsubst '${APP_TARGET_IP} ${APP_TARGET_PORT} ${DEPLOYMENT_COLOR}' \
+               < /etc/nginx/templates/nginx.conf.template \
+               | sudo tee /etc/nginx/environments/nginx_${TARGET_COLOR}.conf
 
-            bash ~/link_switcher.sh $TARGET_COLOR
+             bash ~/link_switcher.sh $TARGET_COLOR
+            ' 
